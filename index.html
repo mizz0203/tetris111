@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>똥트리스 게임</title>
+  <style>
+    body {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      margin: 0;
+      background-color: #f5f5dc;
+      font-family: 'Arial', sans-serif;
+    }
+    
+    .game-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    
+    .game-header {
+      display: flex;
+      justify-content: space-between;
+      width: 300px;
+      margin-bottom: 10px;
+    }
+    
+    .score-display {
+      font-size: 20px;
+      font-weight: bold;
+    }
+    
+    #game-board {
+      border: 2px solid #8B4513;
+      width: 300px;
+      height: 600px;
+      position: relative;
+      background-color: #FFF8DC;
+      overflow: hidden;
+    }
+    
+    .poop {
+      position: absolute;
+      width: 30px;
+      height: 30px;
+      background-color: #8B4513;
+      border-radius: 15px 15px 5px 5px;
+    }
+    
+    .face {
+      position: relative;
+    }
+    
+    .eye {
+      position: absolute;
+      width: 6px;
+      height: 6px;
+      background-color: white;
+      border-radius: 50%;
+    }
+    
+    .left-eye {
+      top: 10px;
+      left: 8px;
+    }
+    
+    .right-eye {
+      top: 10px;
+      left: 18px;
+    }
+    
+    .mouth {
+      position: absolute;
+      width: 10px;
+      height: 5px;
+      background-color: white;
+      border-radius: 0 0 10px 10px;
+      top: 18px;
+      left: 10px;
+    }
+    
+    .fixed-poop {
+      position: absolute;
+      width: 30px;
+      height: 30px;
+      background-color: #8B4513;
+      border-radius: 15px 15px 5px 5px;
+    }
+    
+    .game-over {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.7);
+      color: white;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      font-size: 24px;
+      z-index: 10;
+      display: none;
+    }
+    
+    .control-buttons {
+      display: flex;
+      justify-content: space-between;
+      width: 300px;
+      margin-top: 20px;
+    }
+    
+    button {
+      padding: 10px 15px;
+      background-color: #8B4513;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 16px;
+    }
+    
+    button:hover {
+      background-color: #A0522D;
+    }
+    
+    .next-poop-container {
+      width: 100px;
+      height: 100px;
+      border: 2px solid #8B4513;
+      margin-left: 20px;
+      background-color: #FFF8DC;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      position: relative;
+    }
+    
+    .game-area {
+      display: flex;
+      flex-direction: row;
+    }
+    
+    .next-poop {
+      width: 30px;
+      height: 30px;
+      background-color: #8B4513;
+      border-radius: 15px 15px 5px 5px;
+      position: relative;
+    }
+    
+    .restart-button {
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+  <h1>똥트리스 게임</h1>
+  <div class="game-container">
+    <div class="game-header">
+      <div class="score-display">점수: <span id="score">0</span></div>
+      <div class="score-display">레벨: <span id="level">1</span></div>
+    </div>
+    <div class="game-area">
+      <div id="game-board">
+        <div class="game-over">
+          <p>게임 오버!</p>
+          <p>최종 점수: <span id="final-score">0</span></p>
+          <button class="restart-button" onclick="restartGame()">다시 시작</button>
+        </div>
+      </div>
+      <div class="next-poop-container">
+        <div class="next-poop">
+          <div class="face">
+            <div class="eye left-eye"></div>
+            <div class="eye right-eye"></div>
+            <div class="mouth"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="control-buttons">
+      <button onclick="moveLeft()">←</button>
+      <button onclick="moveDown()">↓</button>
+      <button onclick="moveRight()">→</button>
+      <button onclick="startGame()">게임 시작</button>
+    </div>
+  </div>
+
+  <script>
+    const boardWidth = 10;
+    const boardHeight = 20;
+    const cellSize = 30;
+    let gameBoard = Array(boardHeight).fill().map(() => Array(boardWidth).fill(0));
+    let currentPoop = null;
+    let nextPoop = null;
+    let gameInterval = null;
+    let isGameOver = false;
+    let score = 0;
+    let level = 1;
+    let speed = 1000;
+
+    // 똥 모양 정의
+    const poopShapes = [
+      // 1x1 똥
+      [
+        [1]
+      ],
+      // 1x2 똥
+      [
+        [1, 1]
+      ],
+      // 2x1 똥
+      [
+        [1],
+        [1]
+      ],
+      // 2x2 똥
+      [
+        [1, 1],
+        [1, 1]
+      ],
+      // L 모양 똥
+      [
+        [1, 0],
+        [1, 1]
+      ],
+      // 역 L 모양 똥
+      [
+        [0, 1],
+        [1, 1]
+      ],
+      // T 모양 똥
+      [
+        [1, 1, 1],
+        [0, 1, 0]
+      ]
+    ];
+
+    const gameBoard_el = document.getElementById('game-board');
+    const scoreDisplay = document.getElementById('score');
+    const levelDisplay = document.getElementById('level');
+    const finalScoreDisplay = document.getElementById('final-score');
+    const gameOverScreen = document.querySelector('.game-over');
+    const nextPoopContainer = document.querySelector('.next-poop-container');
+
+    function createRandomPoop() {
+      const shapeIndex = Math.floor(Math.random() * poopShapes.length);
+      const shape = poopShapes[shapeIndex];
+      const width = shape[0].length;
+      const x = Math.floor((boardWidth - width) / 2);
+      const y = 0;
+      
+      return {
+        shape: shape,
+        x: x,
+        y: y
+      };
+    }
+
+    function drawPoop() {
+      // 기존의 활성 똥 요소 제거
+      const existingPoops = document.querySelectorAll('.poop');
+      existingPoops.forEach(poop => poop.remove());
+      
+      if (!currentPoop) return;
+      
+      // 새 똥 그리기
+      for (let row = 0; row < currentPoop.shape.length; row++) {
+        for (let col = 0; col < currentPoop.shape[row].length; col++) {
+          if (currentPoop.shape[row][col]) {
+            const poopElement = document.createElement('div');
+            poopElement.className = 'poop';
+            poopElement.style.left = (currentPoop.x + col) * cellSize + 'px';
+            poopElement.style.top = (currentPoop.y + row) * cellSize + 'px';
+            
+            // 얼굴 추가
+            const face = document.createElement('div');
+            face.className = 'face';
+            
+            const leftEye = document.createElement('div');
+            leftEye.className = 'eye left-eye';
+            
+            const rightEye = document.createElement('div');
+            rightEye.className = 'eye right-eye';
+            
+            const mouth = document.createElement('div');
+            mouth.className = 'mouth';
+            
+            face.appendChild(leftEye);
+            face.appendChild(rightEye);
+            face.appendChild(mouth);
+            poopElement.appendChild(face);
+            
+            gameBoard_el.appendChild(poopElement);
+          }
+        }
+      }
+    }
+
+    function drawNextPoop() {
+      // 기존 다음 똥 제거
+      const existingNextPoop = nextPoopContainer.querySelector('.next-poop');
+      if (existingNextPoop) {
+        existingNextPoop.remove();
+      }
+      
+      if (!nextPoop) return;
+      
+      const containerWidth = 100;
+      const containerHeight = 100;
+      const shapeWidth = nextPoop.shape[0].length * cellSize;
+      const shapeHeight = nextPoop.shape.length * cellSize;
+      
+      const nextPoopElement = document.createElement('div');
+      nextPoopElement.className = 'next-poop';
+      nextPoopElement.style.position = 'absolute';
+      
+      // 다음 똥을 컨테이너 중앙에 배치
+      const left = (containerWidth - shapeWidth) / 2;
+      const top = (containerHeight - shapeHeight) / 2;
+      
+      for (let row = 0; row < nextPoop.shape.length; row++) {
+        for (let col = 0; col < nextPoop.shape[row].length; col++) {
+          if (nextPoop.shape[row][col]) {
+            const poopPiece = document.createElement('div');
+            poopPiece.className = 'next-poop';
+            poopPiece.style.position = 'absolute';
+            poopPiece.style.left = left + col * cellSize + 'px';
+            poopPiece.style.top = top + row * cellSize + 'px';
+            
+            // 얼굴 추가
+            const face = document.createElement('div');
+            face.className = 'face';
+            
+            const leftEye = document.createElement('div');
+            leftEye.className = 'eye left-eye';
+            
+            const rightEye = document.createElement('div');
+            rightEye.className = 'eye right-eye';
+            
+            const mouth = document.createElement('div');
+            mouth.className = 'mouth';
+            
+            face.appendChild(leftEye);
+            face.appendChild(rightEye);
+            face.appendChild(mouth);
+            poopPiece.appendChild(face);
+            
+            nextPoopContainer.appendChild(poopPiece);
+          }
+        }
+      }
+    }
+
+    function drawBoard() {
+      // 기존의 고정된 똥 요소 제거
+      const existingFixedPoops = document.querySelectorAll('.fixed-poop');
+      existingFixedPoops.forEach(poop => poop.remove());
+      
+      // 게임 보드의 고정된 똥 그리기
+      for (let row = 0; row < boardHeight; row++) {
+        for (let col = 0; col < boardWidth; col++) {
+          if (gameBoard[row][col]) {
+            const fixedPoopElement = document.createElement('div');
+            fixedPoopElement.className = 'fixed-poop';
+            fixedPoopElement.style.left = col * cellSize + 'px';
+            fixedPoopElement.style.top = row * cellSize + 'px';
+            
+            // 얼굴 추가
+            const face = document.createElement('div');
+            face.className = 'face';
+            
+            const leftEye = document.createElement('div');
+            leftEye.className = 'eye left-eye';
+            
+            const rightEye = document.createElement('div');
+            rightEye.className = 'eye right-eye';
+            
+            const mouth = document.createElement('div');
+            mouth.className = 'mouth';
+            
+            face.appendChild(leftEye);
+            face.appendChild(rightEye);
+            face.appendChild(mouth);
+            fixedPoopElement.appendChild(face);
+            
+            gameBoard_el.appendChild(fixedPoopElement);
+          }
+        }
+      }
+    }
+
+    function isCollision(poop, offsetX = 0, offsetY = 0) {
+      for (let row = 0; row < poop.shape.length; row++) {
+        for (let col = 0; col < poop.shape[row].length; col++) {
+          if (poop.shape[row][col]) {
+            const newX = poop.x + col + offsetX;
+            const newY = poop.y + row + offsetY;
+            
+            // 보드 경계를 벗어나는지 확인
+            if (newX < 0 || newX >= boardWidth || newY >= boardHeight) {
+              return true;
+            }
+            
+            // 이미 채워진 셀과 충돌하는지 확인
+            if (newY >= 0 && gameBoard[newY][newX]) {
+              return true;
+            }
+          }
+        }
+      }
+      return false;
+    }
+
+    function moveLeft() {
+      if (isGameOver || !currentPoop) return;
+      
+      if (!isCollision(currentPoop, -1, 0)) {
+        currentPoop.x -= 1;
+        drawPoop();
+      }
+    }
+
+    function moveRight() {
+      if (isGameOver || !currentPoop) return;
+      
+      if (!isCollision(currentPoop, 1, 0)) {
+        currentPoop.x += 1;
+        drawPoop();
+      }
+    }
+
+    function moveDown() {
+      if (isGameOver || !currentPoop) return;
+      
+      if (!isCollision(currentPoop, 0, 1)) {
+        currentPoop.y += 1;
+        drawPoop();
+      } else {
+        // 바닥에 닿았거나 다른 똥과 충돌했으므로 고정
+        fixPoop();
+        clearLines();
+        spawnNewPoop();
+      }
+    }
+
+    function fixPoop() {
+      for (let row = 0; row < currentPoop.shape.length; row++) {
+        for (let col = 0; col < currentPoop.shape[row].length; col++) {
+          if (currentPoop.shape[row][col]) {
+            const boardY = currentPoop.y + row;
+            const boardX = currentPoop.x + col;
+            
+            if (boardY >= 0) {
+              gameBoard[boardY][boardX] = 1;
+            }
+          }
+        }
+      }
+      
+      drawBoard();
+    }
+
+    function clearLines() {
+      let linesCleared = 0;
+      
+      for (let row = boardHeight - 1; row >= 0; row--) {
+        if (gameBoard[row].every(cell => cell === 1)) {
+          // 행이 완전히 채워져 있음
+          gameBoard.splice(row, 1);
+          gameBoard.unshift(Array(boardWidth).fill(0));
+          linesCleared++;
+          row++; // 같은 행 인덱스를 다시 검사
+        }
+      }
+      
+      if (linesCleared > 0) {
+        // 점수 업데이트
+        const points = [0, 40, 100, 300, 1200][linesCleared] * level;
+        score += points;
+        scoreDisplay.textContent = score;
+        
+        // 레벨 업데이트
+        const newLevel = Math.floor(score / 1000) + 1;
+        if (newLevel > level) {
+          level = newLevel;
+          levelDisplay.textContent = level;
+          speed = Math.max(100, 1000 - (level - 1) * 100);
+          
+          // 게임 속도 업데이트
+          if (gameInterval) {
+            clearInterval(gameInterval);
+            gameInterval = setInterval(moveDown, speed);
+          }
+        }
+        
+        drawBoard();
+      }
+    }
+
+    function spawnNewPoop() {
+      if (nextPoop) {
+        currentPoop = nextPoop;
+      } else {
+        currentPoop = createRandomPoop();
+      }
+      
+      nextPoop = createRandomPoop();
+      drawNextPoop();
+      
+      // 새로운 똥이 생성되자마자 충돌하면 게임 오버
+      if (isCollision(currentPoop)) {
+        gameOver();
+        return;
+      }
+      
+      drawPoop();
+    }
+
+    function gameOver() {
+      isGameOver = true;
+      clearInterval(gameInterval);
+      gameInterval = null;
+      finalScoreDisplay.textContent = score;
+      gameOverScreen.style.display = 'flex';
+    }
+
+    function startGame() {
+      // 이미 게임이 진행 중이면 무시
+      if (gameInterval) return;
+      
+      // 게임 초기화
+      gameBoard = Array(boardHeight).fill().map(() => Array(boardWidth).fill(0));
+      score = 0;
+      level = 1;
+      speed = 1000;
+      isGameOver = false;
+      
+      scoreDisplay.textContent = score;
+      levelDisplay.textContent = level;
+      gameOverScreen.style.display = 'none';
+      
+      // 보드 및 똥 초기화
+      const existingPoops = document.querySelectorAll('.poop');
+      existingPoops.forEach(poop => poop.remove());
+      
+      const existingFixedPoops = document.querySelectorAll('.fixed-poop');
+      existingFixedPoops.forEach(poop => poop.remove());
+      
+      // 새 똥 생성
+      nextPoop = createRandomPoop();
+      spawnNewPoop();
+      
+      // 게임 타이머 시작
+      gameInterval = setInterval(moveDown, speed);
+    }
+
+    function restartGame() {
+      startGame();
+    }
+
+    // 키보드 이벤트 처리
+    document.addEventListener('keydown', (e) => {
+      if (isGameOver) return;
+      
+      switch (e.key) {
+        case 'ArrowLeft':
+          moveLeft();
+          break;
+        case 'ArrowRight':
+          moveRight();
+          break;
+        case 'ArrowDown':
+          moveDown();
+          break;
+      }
+    });
+
+    // 초기 다음 똥 생성
+    nextPoop = createRandomPoop();
+    drawNextPoop();
+  </script>
+</body>
+</html>
